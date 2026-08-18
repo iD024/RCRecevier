@@ -67,9 +67,9 @@ RCReceiver/
 
 ### Version 1
 
-* [ ] M1 — Project Scaffold & Configuration
-* [ ] M2 — STM32 Initialization
-* [ ] M3 — NRF24 Driver
+* [X] M1 — Project Scaffold & Configuration
+* [X] M2 — STM32 Initialization
+* [X] M3 — NRF24 Driver
 * [ ] M4 — Communication Protocol
 * [ ] M5 — Packet Decoder
 * [ ] M6 — Channel Processing
