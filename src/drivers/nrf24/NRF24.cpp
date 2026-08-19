@@ -170,4 +170,14 @@ Result NRF24::init(uint8_t channel, const uint8_t addr[5]) {
   return Result::Ok;
 }
 
+Result NRF24::writeAckPayload(const uint8_t *buf, uint8_t len) {
+  if (buf == nullptr || len == 0U || len > 32U) {
+    return Result::InvalidParam;
+  }
+  // Load ACK payload for pipe 1 (main control packets pipe)
+  uint8_t cmd = NRF24Reg::CMD_W_ACK_PAYLOAD | 1U;
+  spi_.writeCommand(cmd, buf, len);
+  return Result::Ok;
+}
+
 } // namespace RC::Drivers

@@ -1,78 +1,156 @@
-#include "config/HardwareConfig.hpp"
+// src/main.cpp
 #include "cube_init.h"
-#include "drivers/nrf24/NRF24.hpp"
-#include "drivers/nrf24/NRF24Registers.hpp"
+#include "config/HardwareConfig.hpp"
+#include "config/FirmwareConfig.hpp"
 #include "drivers/spi/SPIBus.hpp"
+#include "drivers/nrf24/NRF24.hpp"
+#include "storage/ConfigStore.hpp"
+#include "protocol/PacketDecoder.hpp"
+#include "protocol/BindingProtocol.hpp"
+#include "channel/ChannelProcessor.hpp"
+#include "output/pwm/PWMOutput.hpp"
+#include "output/sbus/SBUSOutput.hpp"
+#include "output/ibus/IBUSOutput.hpp"
+#include "failsafe/Failsafe.hpp"
+#include "telemetry/Telemetry.hpp"
+#include "debug/DebugConsole.hpp"
 #include "stm32f1xx_hal.h"
 
-// ── Blink helpers ──────────────────────────────────────────────
-// PC13 is active-low on Blue Pill (LOW = LED on).
-static void ledOn() { HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET); }
+// Hardware handles defined in main.c
+extern SPI_HandleTypeDef hspi1;
+extern TIM_HandleTypeDef htim2;
+extern TIM_HandleTypeDef htim3;
+extern TIM_HandleTypeDef htim4;
+extern UART_HandleTypeDef huart1; // Debug
+extern UART_HandleTypeDef huart2; // SBUS
+extern UART_HandleTypeDef huart3; // IBUS
+
+// ── LED helpers (PC13 active-low) ─────────────────
+static void ledOn()  { HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET); }
 static void ledOff() { HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET); }
 
-// Blink n slow pulses then leave LED off (~1 blink / sec — easy to count).
-static void blinkN(uint8_t n) {
-  for (uint8_t i = 0U; i < n; ++i) {
-    ledOn();  HAL_Delay(400U);
-    ledOff(); HAL_Delay(500U);
-  }
-}
-
-// Show a byte as two nibble groups.
-// High nibble first, 2 s gap, then low nibble.
-// Nibble 0 → 16 blinks so it is never silent.
-static void blinkByte(uint8_t val) {
-  uint8_t hi = (val >> 4U) & 0x0FU;
-  uint8_t lo = (val)       & 0x0FU;
-  blinkN(hi == 0U ? 16U : hi);
-  HAL_Delay(2000U); // 2 s gap between nibbles — easy to spot
-  blinkN(lo == 0U ? 16U : lo);
-}
-
 int main() {
-  CubeMX_Init();
+    CubeMX_Init();
 
-  RC::Drivers::SPIBus spiBus(hspi1, GPIOA, RC::HW::NRF_CSN_PIN);
-  RC::Drivers::NRF24 radio(spiBus, GPIOB, RC::HW::NRF_CE_PIN);
+    // Initialize Debug Console (USART1)
+    RC::Debug::DebugConsole::init(&huart1);
+    RC::Debug::DebugConsole::printf("RC Receiver V2 Booting...\r\n");
 
-  // ── Diagnostic: SPI readback test ─────────────────────────
-  const uint8_t address[5] = {0xE7U, 0xE7U, 0xE7U, 0xE7U, 0xE7U};
-  radio.init(42U, address);
+    // Load Configuration
+    RC::Storage::ReceiverConfig config;
+    RC::Storage::ConfigStore::load(config);
+    RC::Debug::DebugConsole::printf("Config Loaded. RX ID: 0x%08lX, Bound TX: 0x%08lX\r\n", 
+                                    config.receiverId, config.boundTransmitterId);
 
-  // Read STATUS via NOP (always reliable if SPI is alive)
-  uint8_t statusVal = radio.readRegister(RC::Drivers::NRF24Reg::REG_STATUS);
+    // Initialize Hardware Drivers
+    RC::Drivers::SPIBus spiBus(hspi1, GPIOA, RC::HW::NRF_CSN_PIN);
+    RC::Drivers::NRF24 radio(spiBus, GPIOB, RC::HW::NRF_CE_PIN);
 
-  // Read back the channel we just wrote
-  uint8_t channelVal = radio.readRegister(RC::Drivers::NRF24Reg::REG_RF_CH);
+    // Initialize Outputs
+    RC::Output::PWMOutput pwmOut(htim2, htim3, htim4);
+    pwmOut.init();
+    RC::Output::SBUSOutput sbusOut(huart2); 
+    RC::Output::IBUSOutput ibusOut(huart3);
 
-  // ── LED output ────────────────────────────────────────────
-  // If channel readback == 42: slow blink → all good.
-  // Otherwise blink STATUS byte, long pause, then CHANNEL byte,
-  // so you can decode exactly what the NRF24 returned.
-  //
-  // Decode: count blinks in first group  = high nibble
-  //         count blinks in second group = low nibble
-  //         16 blinks = nibble value 0
-  //
-  // Common readings:
-  //   STATUS=0x0E, CH=0x2A → SPI OK ✅
-  //   STATUS=0xFF, CH=0xFF → MISO floating (wiring/power issue)
-  //   STATUS=0x0E, CH=0x00 → Write ignored (POR still active or chip variant)
-  while (true) {
-    if (channelVal == 42U) {
-      // Success — slow blink
-      ledOn();
-      HAL_Delay(500U);
-      ledOff();
-      HAL_Delay(500U);
-    } else {
-      // Show STATUS byte
-      blinkByte(statusVal);
-      HAL_Delay(4000U); // 4 s gap between STATUS and CHANNEL
+    // Initialize Processors
+    RC::Channel::ChannelProcessor channelProc;
+    RC::Failsafe::FailsafeController failsafe;
+    RC::Telemetry::TelemetryManager telemetry(radio);
 
-      // Show CHANNEL byte
-      blinkByte(channelVal);
-      HAL_Delay(6000U); // 6 s pause before repeating
+    // Initialize NRF24
+    if (!radio.init(config.radioChannel, config.radioAddr)) {
+        RC::Debug::DebugConsole::printf("NRF24 init failed! Check wiring.\r\n");
+        while(1) {
+            ledOn(); HAL_Delay(100); ledOff(); HAL_Delay(100);
+        }
     }
-  }
+    radio.startListening();
+    RC::Debug::DebugConsole::printf("NRF24 Listening on CH %u\r\n", config.radioChannel);
+    
+    // Initial LED State
+    ledOn(); // Solid LED = Ready
+
+    uint8_t payload[32];
+    uint32_t lastDebugTick = HAL_GetTick();
+
+    while (true) {
+        uint32_t currentTick = HAL_GetTick();
+
+        // 1. Check for incoming RF data
+        if (radio.hasData()) {
+            if (radio.readPayload(payload, sizeof(payload)) == RC::Drivers::Result::Ok) {
+                // Decode packet
+                auto res = RC::Protocol::PacketDecoder::decode(payload, sizeof(payload), config.receiverId);
+                
+                if (res.status == RC::Protocol::DecodeStatus::Ok) {
+                    if (RC::Protocol::BindingProtocol::isBindPacket(*res.packet)) {
+                        RC::Debug::DebugConsole::printf("Bind packet received! TX ID: 0x%08lX\r\n", res.packet->transmitterId);
+                        RC::Protocol::BindingProtocol::extractToConfig(*res.packet, config);
+                        RC::Storage::ConfigStore::save(config);
+                        RC::Debug::DebugConsole::printf("Bind config saved. Rebooting...\r\n");
+                        HAL_Delay(500);
+                        HAL_NVIC_SystemReset();
+                    } else if (res.packet->type == static_cast<uint8_t>(RC::Protocol::PacketType::Control)) {
+                        // Check if packet is from bound transmitter
+                        if (config.boundTransmitterId == res.packet->transmitterId) {
+                            failsafe.registerValidPacket();
+                            
+                            // Process channels
+                            RC::Channel::ChannelData chData = channelProc.process(res.packet->channels);
+                            
+                            // Output
+                            pwmOut.update(chData);
+                            sbusOut.sendFrame(chData, false);
+                            ibusOut.sendFrame(chData);
+
+                            // Telemetry ACK update
+                            // Mocking RSSI and Voltage for now
+                            telemetry.updateStats(100, 100, 0, 3300, 10);
+                            telemetry.writeAckPayload();
+                            
+                            // Flash LED briefly to indicate packet rx
+                            ledOff(); 
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Failsafe Management
+        RC::Failsafe::FailsafeState state = failsafe.update(currentTick);
+        
+        if (failsafe.justEnteredFailsafe()) {
+            RC::Debug::DebugConsole::printf("FAILSAFE ACTIVATED\r\n");
+        } else if (failsafe.justRecovered()) {
+            RC::Debug::DebugConsole::printf("RECOVERED FROM FAILSAFE\r\n");
+            channelProc.resetFilter();
+            ledOn(); // Ensure LED is on after recovery
+        }
+
+        if (state == RC::Failsafe::FailsafeState::Failsafe) {
+            RC::Channel::ChannelData fsData = channelProc.applyFailsafe();
+            pwmOut.update(fsData);
+            sbusOut.sendFrame(fsData, true);
+            ibusOut.sendFrame(fsData);
+            
+            // Blink LED rapidly in failsafe (10 Hz)
+            if ((currentTick % 100U) < 50U) {
+                ledOn();
+            } else {
+                ledOff();
+            }
+        } else {
+            // Restore LED if it was flashed by a packet (extend flash time slightly)
+            if ((currentTick % 20U) == 0U) {
+                ledOn();
+            }
+        }
+
+        // 3. Debug Output (1 Hz)
+        if ((currentTick - lastDebugTick) >= 1000U) {
+            lastDebugTick = currentTick;
+            // Can print status here if needed
+            // RC::Debug::DebugConsole::printf("Heartbeat: %lu\r\n", currentTick);
+        }
+    }
 }
