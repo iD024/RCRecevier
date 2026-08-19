@@ -1,8 +1,8 @@
 // src/output/ibus/IBUSOutput.hpp
 #pragma once
 #include "channel/ChannelProcessor.hpp"
-#include "stm32f1xx_hal.h"
-#include <cstdint>
+#include "stm32f1xx_hal.h" // IWYU pragma: keep
+#include <stdint.h>        // IWYU pragma: keep
 
 namespace RC::Output {
 
@@ -14,13 +14,13 @@ namespace RC::Output {
 /// Checksum is 0xFFFF - sum(bytes 0..29)
 class IBUSOutput {
 public:
-    explicit IBUSOutput(UART_HandleTypeDef& huart);
+  explicit IBUSOutput(UART_HandleTypeDef &huart);
 
-    /// Convert channel data to IBUS frame and transmit via UART.
-    void sendFrame(const RC::Channel::ChannelData& data);
+  /// Convert channel data to IBUS frame and transmit via UART.
+  void sendFrame(const RC::Channel::ChannelData &data);
 
 private:
-    UART_HandleTypeDef& huart_;
+  UART_HandleTypeDef &huart_;
 };
 
 } // namespace RC::Output

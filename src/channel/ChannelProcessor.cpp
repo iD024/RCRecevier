@@ -19,7 +19,7 @@ uint16_t ChannelProcessor::applyDeadband(uint16_t val,
                                           uint16_t center,
                                           uint16_t band) {
     // Snap to center if within ±band µs of center
-    if (val > (center - band) && val < (center + band)) {
+    if (val >= (center - band) && val <= (center + band)) {
         return center;
     }
     return val;

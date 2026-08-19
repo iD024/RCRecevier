@@ -153,12 +153,12 @@ Result NRF24::init(uint8_t channel, const uint8_t addr[5]) {
 
   writeReg(NRF24Reg::REG_RX_PW_P0, RC::HW::NRF_PAYLOAD_SIZE);
 
-  // Enable ACK payload feature.
-  // Original nRF24L01 (non-plus) requires an ACTIVATE 0x73 command before
-  // REG_FEATURE is writable. Sending it is harmless on the nRF24L01+.
+  // Enable ACK payload and Dynamic Payload Length (DPL) feature.
+  // ACK payloads require DPL feature flag enabled in FEATURE and DYNPD registers.
   uint8_t activate[2] = {NRF24Reg::CMD_ACTIVATE, NRF24Reg::ACTIVATE_MAGIC};
   spi_.write(activate, 2U);
-  writeReg(NRF24Reg::REG_FEATURE, NRF24Reg::FEAT_EN_ACK_PAY);
+  writeReg(NRF24Reg::REG_FEATURE, NRF24Reg::FEAT_EN_ACK_PAY | NRF24Reg::FEAT_EN_DPL);
+  writeReg(NRF24Reg::REG_DYNPD, 0x03U); // Enable DPL on Pipe 0 and Pipe 1
 
   // Clear pending IRQ flags
   writeReg(NRF24Reg::REG_STATUS,
@@ -166,6 +166,12 @@ Result NRF24::init(uint8_t channel, const uint8_t addr[5]) {
 
   flushRx();
   flushTx();
+
+  // Verify SPI communication and module presence by reading back the channel
+  uint8_t readback = readReg(NRF24Reg::REG_RF_CH);
+  if (readback != (channel & 0x7FU)) {
+      return Result::Error;
+  }
 
   return Result::Ok;
 }
@@ -177,6 +183,22 @@ Result NRF24::writeAckPayload(const uint8_t *buf, uint8_t len) {
   // Load ACK payload for pipe 1 (main control packets pipe)
   uint8_t cmd = NRF24Reg::CMD_W_ACK_PAYLOAD | 1U;
   spi_.writeCommand(cmd, buf, len);
+  return Result::Ok;
+}
+
+bool NRF24::isDataReady() {
+  uint8_t status = readStatus();
+  return (status & NRF24Reg::ST_RX_DR) != 0U;
+}
+
+Result NRF24::readPayload(uint8_t *buf, uint8_t len) {
+  if (buf == nullptr || len == 0U) {
+    return Result::InvalidParam;
+  }
+
+  spi_.transferCommand(NRF24Reg::CMD_R_RX_PAYLOAD, buf, len);
+  writeReg(NRF24Reg::REG_STATUS, NRF24Reg::ST_RX_DR);
+
   return Result::Ok;
 }
 

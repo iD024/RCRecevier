@@ -282,9 +282,6 @@ static void MX_TIM4_Init(void) {
   if (HAL_TIM_PWM_Init(&htim4) != HAL_OK) {
     Error_Handler();
   }
-  if (HAL_TIM_PWM_Init(&htim4) != HAL_OK) {
-    Error_Handler();
-  }
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig) != HAL_OK) {
@@ -439,7 +436,7 @@ static void MX_GPIO_Init(void) {
   GPIO_InitStruct.Pin = NRF24_CSN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(NRF24_CSN_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : NRF24_IRQ_Pin */
@@ -452,7 +449,7 @@ static void MX_GPIO_Init(void) {
   GPIO_InitStruct.Pin = NRF24_CE_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(NRF24_CE_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : Bind_Button_Pin */

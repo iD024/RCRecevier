@@ -1,8 +1,7 @@
 // src/output/pwm/PWMOutput.hpp
 #pragma once
 #include "channel/ChannelProcessor.hpp"
-#include "stm32f1xx_hal.h"
-#include <cstdint>
+#include <stdint.h>
 
 namespace RC::Output {
 
@@ -20,26 +19,25 @@ namespace RC::Output {
 ///   CH8 (index 7) = PB5  — TIM3_CH2 (partial remap)
 class PWMOutput {
 public:
-    PWMOutput(TIM_HandleTypeDef& tim2,
-              TIM_HandleTypeDef& tim3,
-              TIM_HandleTypeDef& tim4);
+  PWMOutput(TIM_HandleTypeDef &tim2, TIM_HandleTypeDef &tim3,
+            TIM_HandleTypeDef &tim4);
 
-    /// Start all 8 PWM channels at center position (1500µs).
-    void init();
+  /// Start all 8 PWM channels at center position (1500µs).
+  void init();
 
-    /// Update all 8 channels from ChannelData µs values.
-    void update(const RC::Channel::ChannelData& data);
+  /// Update all 8 channels from ChannelData µs values.
+  void update(const RC::Channel::ChannelData &data);
 
-    /// Set a single channel (0-indexed, 0–7) to a specific µs value.
-    void setChannel(uint8_t ch, uint16_t us);
+  /// Set a single channel (0-indexed, 0–7) to a specific µs value.
+  void setChannel(uint8_t ch, uint16_t us);
 
 private:
-    TIM_HandleTypeDef& tim2_;
-    TIM_HandleTypeDef& tim3_;
-    TIM_HandleTypeDef& tim4_;
+  TIM_HandleTypeDef &tim2_;
+  TIM_HandleTypeDef &tim3_;
+  TIM_HandleTypeDef &tim4_;
 
-    /// At 1 MHz timer clock: 1µs = 1 count → CCR = us directly.
-    static uint32_t usToCCR(uint16_t us);
+  /// At 1 MHz timer clock: 1µs = 1 count → CCR = us directly.
+  static uint32_t usToCCR(uint16_t us);
 };
 
 } // namespace RC::Output

@@ -53,7 +53,10 @@ void PWMOutput::setChannel(uint8_t ch, uint16_t us) {
 }
 
 void PWMOutput::update(const RC::Channel::ChannelData& data) {
-    for (uint8_t i = 0U; i < RC::FW::PACKET_CHANNEL_COUNT; ++i) {
+    constexpr uint8_t count = (RC::FW::PACKET_CHANNEL_COUNT < RC::HW::PWM_CHANNEL_COUNT) 
+                              ? RC::FW::PACKET_CHANNEL_COUNT 
+                              : RC::HW::PWM_CHANNEL_COUNT;
+    for (uint8_t i = 0U; i < count; ++i) {
         setChannel(i, data.us[i]);
     }
 }
