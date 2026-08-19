@@ -31,22 +31,30 @@ static void ledOff() { HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET); }
 
 static void printBootBanner(const RC::Storage::ReceiverConfig &config) {
   RC::Debug::DebugConsole::printf("\r\n");
-  RC::Debug::DebugConsole::printf("==================================================\r\n");
+  RC::Debug::DebugConsole::printf(
+      "==================================================\r\n");
   RC::Debug::DebugConsole::printf(" [SYS] STM32 RC Receiver V2 Booting\r\n");
-  RC::Debug::DebugConsole::printf(" [SYS] CPU Clock  : %lu MHz\r\n", SystemCoreClock / 1000000U);
-  RC::Debug::DebugConsole::printf(" [SYS] Receiver ID: 0x%08lX\r\n", static_cast<unsigned long>(config.receiverId));
+  RC::Debug::DebugConsole::printf(" [SYS] CPU Clock  : %lu MHz\r\n",
+                                  SystemCoreClock / 1000000U);
+  RC::Debug::DebugConsole::printf(
+      " [SYS] Receiver ID: 0x%08lX\r\n",
+      static_cast<unsigned long>(config.receiverId));
   if (config.boundTransmitterId == 0xFFFFFFFFU) {
-    RC::Debug::DebugConsole::printf(" [SYS] Bound TX ID: NONE (Unbound / Broadcast Mode)\r\n");
+    RC::Debug::DebugConsole::printf(
+        " [SYS] Bound TX ID: NONE (Unbound / Broadcast Mode)\r\n");
   } else {
-    RC::Debug::DebugConsole::printf(" [SYS] Bound TX ID: 0x%08lX (Bound)\r\n", static_cast<unsigned long>(config.boundTransmitterId));
+    RC::Debug::DebugConsole::printf(
+        " [SYS] Bound TX ID: 0x%08lX (Bound)\r\n",
+        static_cast<unsigned long>(config.boundTransmitterId));
   }
-  RC::Debug::DebugConsole::printf(" [SYS] NRF24 CH   : %u (Addr: %02X:%02X:%02X:%02X:%02X)\r\n",
-                                  config.radioChannel,
-                                  config.radioAddr[0], config.radioAddr[1],
-                                  config.radioAddr[2], config.radioAddr[3],
-                                  config.radioAddr[4]);
-  RC::Debug::DebugConsole::printf(" [SYS] Outputs    : 8x PWM (50Hz), SBUS (100k), IBUS (115.2k)\r\n");
-  RC::Debug::DebugConsole::printf("==================================================\r\n\r\n");
+  RC::Debug::DebugConsole::printf(
+      " [SYS] NRF24 CH   : %u (Addr: %02X:%02X:%02X:%02X:%02X)\r\n",
+      config.radioChannel, config.radioAddr[0], config.radioAddr[1],
+      config.radioAddr[2], config.radioAddr[3], config.radioAddr[4]);
+  RC::Debug::DebugConsole::printf(
+      " [SYS] Outputs    : 8x PWM (50Hz), SBUS (100k), IBUS (115.2k)\r\n");
+  RC::Debug::DebugConsole::printf(
+      "==================================================\r\n\r\n");
 }
 
 int main() {
@@ -79,7 +87,8 @@ int main() {
   // Initialize NRF24
   if (radio.init(config.radioChannel, config.radioAddr) !=
       RC::Drivers::Result::Ok) {
-    RC::Debug::DebugConsole::printf("[ERROR] NRF24 hardware initialization failed! Check wiring/power.\r\n");
+    RC::Debug::DebugConsole::printf("[ERROR] NRF24 hardware initialization "
+                                    "failed! Check wiring/power.\r\n");
     while (1) {
       // 3 rapid blinks followed by 1s pause error pattern
       for (int i = 0; i < 3; i++) {
@@ -92,7 +101,8 @@ int main() {
     }
   }
   radio.startListening();
-  RC::Debug::DebugConsole::printf("[SYS] Receiver Initialized & Ready! Listening for packets...\r\n");
+  RC::Debug::DebugConsole::printf(
+      "[SYS] Receiver Initialized & Ready! Listening for packets...\r\n");
 
   uint8_t payload[32];
   uint32_t lastDebugTick = HAL_GetTick();
@@ -155,9 +165,11 @@ int main() {
     RC::Failsafe::FailsafeState state = failsafe.update(currentTick);
 
     if (failsafe.justEnteredFailsafe()) {
-      RC::Debug::DebugConsole::printf("[FAILSAFE] Signal lost! Applying failsafe values...\r\n");
+      RC::Debug::DebugConsole::printf(
+          "[FAILSAFE] Signal lost! Applying failsafe values...\r\n");
     } else if (failsafe.justRecovered()) {
-      RC::Debug::DebugConsole::printf("[FAILSAFE] Signal recovered! Restoring control...\r\n");
+      RC::Debug::DebugConsole::printf(
+          "[FAILSAFE] Signal recovered! Restoring control...\r\n");
       channelProc.resetFilter();
     }
 
@@ -174,7 +186,8 @@ int main() {
         ledOff();
       }
     } else {
-      // Normal Active state LED: Solid ON, with 15ms pulse OFF on packet reception
+      // Normal Active state LED: Solid ON, with 15ms pulse OFF on packet
+      // reception
       if (pulseLedOff) {
         ledOff();
         if ((currentTick - lastLedPulseTick) >= 15U) {
@@ -190,9 +203,10 @@ int main() {
       lastDebugTick = currentTick;
       RC::Debug::DebugConsole::printf(
           "[STAT] Uptime: %lu s | Packets Rx: %lu | Status: %s\r\n",
-          currentTick / 1000U,
-          static_cast<unsigned long>(totalPacketsReceived),
-          (state == RC::Failsafe::FailsafeState::Active) ? "READY / ACTIVE" : "FAILSAFE / SIGNAL LOST");
+          currentTick / 1000U, static_cast<unsigned long>(totalPacketsReceived),
+          (state == RC::Failsafe::FailsafeState::Active)
+              ? "READY / ACTIVE"
+              : "FAILSAFE / SIGNAL LOST");
     }
   }
 }

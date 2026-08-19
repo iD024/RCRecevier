@@ -1,6 +1,5 @@
 // src/failsafe/Failsafe.hpp
 #pragma once
-#include "config/FirmwareConfig.hpp"
 #include <stdint.h>
 
 namespace RC::Failsafe {
