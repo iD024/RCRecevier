@@ -1,0 +1,75 @@
+/* USER CODE BEGIN Header */
+/**
+  ******************************************************************************
+  * @file    stm32f1xx_it.c
+  * @brief   Interrupt Service Routines.
+  ******************************************************************************
+  */
+/* USER CODE END Header */
+
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
+#include "stm32f1xx_it.h"
+
+/******************************************************************************/
+/*           Cortex-M3 Processor Interruption and Exception Handlers          */
+/******************************************************************************/
+void NMI_Handler(void)
+{
+  while (1)
+  {
+  }
+}
+
+void HardFault_Handler(void)
+{
+  while (1)
+  {
+  }
+}
+
+void MemManage_Handler(void)
+{
+  while (1)
+  {
+  }
+}
+
+void BusFault_Handler(void)
+{
+  while (1)
+  {
+  }
+}
+
+void UsageFault_Handler(void)
+{
+  while (1)
+  {
+  }
+}
+
+void SVC_Handler(void)
+{
+}
+
+void DebugMon_Handler(void)
+{
+}
+
+void PendSV_Handler(void)
+{
+}
+
+void SysTick_Handler(void)
+{
+  HAL_IncTick();
+}
+
+/******************************************************************************/
+/* STM32F1xx Peripheral Interrupt Handlers                                    */
+/******************************************************************************/
+void EXTI0_IRQHandler(void)
+{
+  HAL_GPIO_EXTI_IRQHandler(NRF24_IRQ_Pin);
+}

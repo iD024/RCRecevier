@@ -1,22 +1,16 @@
 // src/main.cpp
-#include "channel/ChannelProcessor.hpp"
-#include "config/FirmwareConfig.hpp"
-#include "config/HardwareConfig.hpp"
-#include "cube_init.h"
-#include "debug/DebugConsole.hpp"
-#include "drivers/nrf24/NRF24.hpp"
-#include "drivers/spi/SPIBus.hpp"
-#include "failsafe/Failsafe.hpp"
-#include "output/ibus/IBUSOutput.hpp"
-#include "output/pwm/PWMOutput.hpp"
-#include "output/sbus/SBUSOutput.hpp"
-#include "protocol/BindingProtocol.hpp"
-#include "protocol/PacketDecoder.hpp"
-#include "stm32f1xx_hal.h"
-#include "storage/ConfigStore.hpp"
-#include "telemetry/Telemetry.hpp"
+#include "main.h"
+#include "config.hpp"
+#include "radio/nrf24.hpp"
+#include "protocol/protocol.hpp"
+#include "outputs/rc_output.hpp"
+#include "core/channel_processor.hpp"
+#include "core/failsafe.hpp"
+#include "core/telemetry.hpp"
+#include "core/config_store.hpp"
+#include "core/debug.hpp"
 
-// Hardware handles defined in main.c
+// Hardware handles defined in src/hal/stm32f1xx_hal_msp.c
 extern SPI_HandleTypeDef hspi1;
 extern TIM_HandleTypeDef htim2;
 extern TIM_HandleTypeDef htim3;
@@ -90,7 +84,6 @@ int main() {
     RC::Debug::DebugConsole::printf("[ERROR] NRF24 hardware initialization "
                                     "failed! Check wiring/power.\r\n");
     while (1) {
-      // 3 rapid blinks followed by 1s pause error pattern
       for (int i = 0; i < 3; i++) {
         ledOn();
         HAL_Delay(100);
@@ -117,7 +110,6 @@ int main() {
     if (radio.isDataReady()) {
       if (radio.readPayload(payload, sizeof(payload)) ==
           RC::Drivers::Result::Ok) {
-        // Decode packet
         auto res = RC::Protocol::PacketDecoder::decode(payload, sizeof(payload),
                                                        config.receiverId);
 
@@ -134,25 +126,20 @@ int main() {
             HAL_NVIC_SystemReset();
           } else if (res.packet->type ==
                      static_cast<uint8_t>(RC::Protocol::PacketType::Control)) {
-            // Check if packet is from bound transmitter
             if (config.boundTransmitterId == res.packet->transmitterId) {
               failsafe.registerValidPacket();
               totalPacketsReceived++;
 
-              // Process channels
               RC::Channel::ChannelData chData =
                   channelProc.process(res.packet->channels);
 
-              // Output
               pwmOut.update(chData);
               sbusOut.sendFrame(chData, false);
               ibusOut.sendFrame(chData);
 
-              // Telemetry ACK update
               telemetry.updateStats(100, 100, 0, 3300, 10);
               telemetry.writeAckPayload();
 
-              // Trigger brief LED pulse off to signal active packet reception
               pulseLedOff = true;
               lastLedPulseTick = currentTick;
             }
@@ -179,15 +166,12 @@ int main() {
       sbusOut.sendFrame(fsData, true);
       ibusOut.sendFrame(fsData);
 
-      // Failsafe status LED: non-blocking 5Hz blink (100ms ON / 100ms OFF)
       if ((currentTick / 100U) % 2U == 0U) {
         ledOn();
       } else {
         ledOff();
       }
     } else {
-      // Normal Active state LED: Solid ON, with 15ms pulse OFF on packet
-      // reception
       if (pulseLedOff) {
         ledOff();
         if ((currentTick - lastLedPulseTick) >= 15U) {

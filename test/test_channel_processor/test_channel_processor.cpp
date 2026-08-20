@@ -1,6 +1,6 @@
 // test/test_channel_processor/test_channel_processor.cpp
 #include <unity.h>
-#include "channel/ChannelProcessor.hpp"
+#include "core/channel_processor.hpp"
 #include <cstdlib>
 
 using namespace RC::Channel;
@@ -11,15 +11,12 @@ void setUp()    { proc = new ChannelProcessor(); }
 void tearDown() { delete proc; proc = nullptr; }
 
 void test_normal_values_pass_through() {
-    // With alpha=0.8 and filter initialized to 1500:
-    // ch0 = 1000: 0.8*1000 + 0.2*1500 = 1100
     uint16_t raw[8] = {1000, 1200, 1500, 1700, 2000, 1500, 1500, 1500};
     ChannelData d = proc->process(raw);
     TEST_ASSERT_EQUAL_UINT16(1100U, d.us[0]);
 }
 
 void test_out_of_range_clamped() {
-    // All below 1000 → clamped to 1000, then EMA: 0.8*1000 + 0.2*1500 = 1100
     uint16_t raw[8] = {500, 500, 500, 500, 500, 500, 500, 500};
     ChannelData d = proc->process(raw);
     for (uint8_t i = 0; i < 8; ++i) {
@@ -28,8 +25,6 @@ void test_out_of_range_clamped() {
 }
 
 void test_deadband_at_center() {
-    // 1502 is within ±5µs of 1500 → snaps to 1500
-    // EMA: 0.8*1500 + 0.2*1500 = 1500
     uint16_t raw[8] = {1502, 1502, 1502, 1502, 1502, 1502, 1502, 1502};
     ChannelData d = proc->process(raw);
     for (uint8_t i = 0; i < 8; ++i) {
@@ -45,10 +40,8 @@ void test_failsafe_cuts_throttle() {
 }
 
 void test_reset_filter_restores_center() {
-    // Drive filter away from center
     uint16_t raw[8] = {2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000};
     proc->process(raw);
-    // Reset and immediately apply failsafe — all outputs must be exact
     proc->resetFilter();
     ChannelData d = proc->applyFailsafe();
     TEST_ASSERT_EQUAL_UINT16(1000U, d.us[2]);

@@ -1,6 +1,6 @@
 // test/test_crc16/test_crc16.cpp
 #include <unity.h>
-#include "protocol/CRC16.hpp"
+#include "protocol/protocol.hpp"
 
 using namespace RC::Protocol;
 

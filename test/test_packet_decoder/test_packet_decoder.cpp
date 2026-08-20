@@ -1,7 +1,6 @@
 // test/test_packet_decoder/test_packet_decoder.cpp
 #include <unity.h>
-#include "protocol/PacketDecoder.hpp"
-#include "protocol/CRC16.hpp"
+#include "protocol/protocol.hpp"
 #include <cstring>
 
 using namespace RC::Protocol;
@@ -66,7 +65,6 @@ void test_broadcast_id_accepted_always() {
 void test_channel_out_of_range_rejected() {
     Packet p = makeValidPacket();
     p.channels[3] = 2500U; // out of range
-    // Recompute valid CRC so CRC check passes but channel check fails
     constexpr uint16_t CRC_LEN = sizeof(Packet) - sizeof(uint16_t);
     p.crc = CRC16::compute(reinterpret_cast<uint8_t*>(&p), CRC_LEN);
     auto r = PacketDecoder::decode(reinterpret_cast<uint8_t*>(&p), sizeof(p), 0xDEADBEEFU);

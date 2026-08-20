@@ -1,4 +1,7 @@
-.pio
+.pio/
 .vscode/
-
+.cache/
+.clangd/
+compile_commands.json
+.mxproject
 docs/scaffolding
