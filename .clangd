@@ -1,0 +1,7 @@
+CompileFlags:
+  Add:
+    - "-I/home/laksh/.platformio/packages/toolchain-gccarmnoneeabi@1.70201.0/arm-none-eabi/include/c++/7.2.1"
+    - "-I/home/laksh/.platformio/packages/toolchain-gccarmnoneeabi@1.70201.0/arm-none-eabi/include/c++/7.2.1/arm-none-eabi"
+    - "-I/home/laksh/.platformio/packages/toolchain-gccarmnoneeabi@1.70201.0/arm-none-eabi/include"
+    - "-I/home/laksh/.platformio/packages/toolchain-gccarmnoneeabi@1.70201.0/lib/gcc/arm-none-eabi/7.2.1/include"
+    - "-I/home/laksh/.platformio/packages/toolchain-gccarmnoneeabi@1.70201.0/lib/gcc/arm-none-eabi/7.2.1/include-fixed"

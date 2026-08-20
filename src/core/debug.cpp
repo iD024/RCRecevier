@@ -1,7 +1,7 @@
 #include "core/debug.hpp"
-#include <cstdarg>
-#include <cstdio>
 #include <cstring>
+#include <stdarg.h>
+#include <stdio.h>
 
 namespace RC::Debug {
 
